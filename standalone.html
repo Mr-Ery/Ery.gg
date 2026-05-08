@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Lightning-fast Dota 2 draft assistant for ranked matchmaking">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Dota Draft">
+    
+    <link rel="manifest" href="data:application/json,%7B%22name%22:%22Dota%202%20Draft%20Assistant%22,%22short_name%22:%22Dota%20Draft%22,%22start_url%22:%22/%22,%22display%22:%22standalone%22,%22background_color%22:%22%230f172a%22,%22theme_color%22:%22%230f172a%22,%22icons%22:%5B%7B%22src%22:%22data:image/svg+xml,%253Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20viewBox=%270%200%20192%20192%27%253E%253Crect%20fill=%27%236d28d9%27%20width=%27192%27%20height=%27192%27/%253E%253Ctext%20x=%2796%27%20y=%2796%27%20font-size=%27100%27%20fill=%27%23fbbf24%27%20text-anchor=%27middle%27%20dominant-baseline=%27middle%27%253E%E2%9A%94%EF%B8%8F%253C/text%253E%253C/svg%253E%22,%22sizes%22:%22192x192%22,%22type%22:%22image/svg+xml%22%7D%5D%7D">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect fill='%236d28d9' width='100' height='100'/%3E%3Ctext x='50' y='50' font-size='60' fill='%23fbbf24' text-anchor='middle' dominant-baseline='middle'%3E⚔️%3C/text%3E%3C/svg%3E">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect fill='%236d28d9' width='180' height='180' rx='40'/%3E%3Ctext x='90' y='90' font-size='100' fill='%23fbbf24' text-anchor='middle' dominant-baseline='middle'%3E⚔️%3C/text%3E%3C/svg%3E">
+    
+    <title>Dota 2 Draft Assistant</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/lucide@latest"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: linear-gradient(to bottom right, #0f172a, #1e1b4b, #0f172a);
+            color: #fff;
+            overflow-x: hidden;
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.3s ease-in;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .glow {
+            box-shadow: 0 0 20px rgba(168, 85, 247, 0.3);
+        }
+        
+        .card-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(168, 85, 247, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script>
+        // ============================================================================
+        // HERO DATABASE
+        // ============================================================================
+        const HEROES = [
+            // Carries
+            { id: 1, name: 'Anti-Mage', role: 'Carry', position: 1, icon: '🔫', winRate: 52.3, strength: 'Split push, farm speed, late game', weakness: 'Early game pressure', countersTo: ['Tinker', 'Medusa', 'Phantom Lancer'], counteredBy: ['Bounty Hunter', 'Spirit Breaker', 'Earthshaker'] },
+            { id: 2, name: 'Drow Ranger', role: 'Carry', position: 1, icon: '🏹', winRate: 51.2, strength: 'Range advantage, stat steroid', weakness: 'Mobile heroes', countersTo: ['Void Spirit', 'Pangolier', 'Dark Willow'], counteredBy: ['Storm Spirit', 'Puck', 'Queen of Pain'] },
+            { id: 3, name: 'Juggernaut', role: 'Carry', position: 1, icon: '⚔️', winRate: 52.8, strength: 'Early aggression, spinning power', weakness: 'Mana dependent', countersTo: ['Spectre', 'Terrorblade', 'Morphling'], counteredBy: ['Axe', 'Abyssal Underlord', 'Doom'] },
+            { id: 4, name: 'Phantom Assassin', role: 'Carry', position: 1, icon: '🗡️', winRate: 50.9, strength: 'High burst, evasion', weakness: 'Armor heavy opponents', countersTo: ['Anti-Mage', 'Naga Siren', 'Medusa'], counteredBy: ['Bristleback', 'Tidehunter', 'Centaur Warrunner'] },
+            { id: 5, name: 'Spectre', role: 'Carry', position: 1, icon: '👻', winRate: 51.5, strength: 'Late game teamfight, global presence', weakness: 'Early aggression', countersTo: ['Arc Warden', 'Carry meta'], counteredBy: ['Oracle', 'Dazzle', 'Treant Protector'] },
+            
+            // Midlaners
+            { id: 6, name: 'Invoker', role: 'Midlaner', position: 2, icon: '🌪️', winRate: 49.2, strength: 'High skill cap, versatility', weakness: 'Vulnerable to ganks', countersTo: ['Timbersaw', 'Dragon Knight', 'Outworld Destroyer'], counteredBy: ['Puck', 'Silencer', 'Enchantress'] },
+            { id: 7, name: 'Puck', role: 'Midlaner', position: 2, icon: '🌸', winRate: 53.1, strength: 'Burst damage, escape', weakness: 'Farm dependent', countersTo: ['Invoker', 'Tinker', 'Lina'], counteredBy: ['Silencer', 'Legion Commander', 'Treant Protector'] },
+            { id: 8, name: 'Templar Assassin', role: 'Midlaner', position: 2, icon: '💎', winRate: 51.6, strength: 'High damage, refraction defense', weakness: 'No escape', countersTo: ['Puck', 'Storm Spirit', 'Lina'], counteredBy: ['Axe', 'Bounty Hunter', 'Eul wielders'] },
+            { id: 9, name: 'Storm Spirit', role: 'Midlaner', position: 2, icon: '⚡', winRate: 50.8, strength: 'Mobility, ganking potential', weakness: 'Mana reliant', countersTo: ['Anti-Mage', 'Meepo', 'Drow Ranger'], counteredBy: ['Silencer', 'Anti-Mage', 'Tinker'] },
+            { id: 10, name: 'Ember Spirit', role: 'Midlaner', position: 2, icon: '🔥', winRate: 50.3, strength: 'Utility, double damage amplification', weakness: 'Team dependent', countersTo: ['Meepo', 'Broodmother', 'Arc Warden'], counteredBy: ['Doom', 'Techies', 'Axe'] },
+            
+            // Offlaners
+            { id: 11, name: 'Axe', role: 'Offlaner', position: 3, icon: '🪓', winRate: 54.2, strength: 'Early game dominance, spin tanking', weakness: 'Kitable heroes', countersTo: ['Phantom Assassin', 'Anti-Mage', 'Terrorblade'], counteredBy: ['Tinker', 'Kunkka', 'Abyssal Underlord'] },
+            { id: 12, name: 'Bristleback', role: 'Offlaner', position: 3, icon: '🗾', winRate: 52.9, strength: 'Tanky, damage reduction', weakness: 'Silences hurt', countersTo: ['Phantom Assassin', 'Enchantress', 'Drow Ranger'], counteredBy: ['Silencer', 'Medusa', 'Huskar'] },
+            { id: 13, name: 'Tidehunter', role: 'Offlaner', position: 3, icon: '🌊', winRate: 51.4, strength: 'AOE stun, teamfight', weakness: 'Slow farmer', countersTo: ['Phantom Assassin', 'Morphling', 'Gyrocopter'], counteredBy: ['Bounty Hunter', 'Void Spirit', 'Puck'] },
+            { id: 14, name: 'Centaur Warrunner', role: 'Offlaner', position: 3, icon: '🐴', winRate: 50.7, strength: 'Return damage, AOE stun', weakness: 'Item dependent', countersTo: ['Phantom Assassin', 'Slark', 'Riki'], counteredBy: ['Silencer', 'Lion', 'Shadow Demon'] },
+            { id: 15, name: 'Abyssal Underlord', role: 'Offlaner', position: 3, icon: '👹', winRate: 50.2, strength: 'Global presence, utility', weakness: 'Early game', countersTo: ['Phantom Assassin', 'Drow Ranger', 'Gyrocopter'], counteredBy: ['Anti-Mage', 'Diffusal carriers', 'Tinker'] },
+            
+            // Supports
+            { id: 16, name: 'Crystal Maiden', role: 'Support', position: '4/5', icon: '❄️', winRate: 49.8, strength: 'Mana regen, teamfight stun', weakness: 'Squishy, slow', countersTo: ['Strength carries', 'Mana dependent heroes'], counteredBy: ['Silencer', 'Pugna', 'Anti-Mage'] },
+            { id: 17, name: 'Earthshaker', role: 'Support', position: '4/5', icon: '🪨', winRate: 51.3, strength: 'AOE stun, positioning impact', weakness: 'Positioning reliant', countersTo: ['Grouped carries', 'Illusion heroes'], counteredBy: ['Eul spirit vessel holders', 'Silencer'] },
+            { id: 18, name: 'Lion', role: 'Support', position: '4/5', icon: '🦁', winRate: 50.6, strength: 'Burst stun, disable', weakness: 'Mana dependent', countersTo: ['Phantom Assassin', 'Essence drain victims'], counteredBy: ['Eul', 'Aeon Disk holders', 'Range advantage'] },
+            { id: 19, name: 'Shadow Shaman', role: 'Support', position: '4/5', icon: '👻', winRate: 50.1, strength: 'Tower disables, stun chain', weakness: 'Mana dependent', countersTo: ['Structure defenders', 'Clustered teams'], counteredBy: ['Eul', 'Dispel heroes', 'Silencer'] },
+            { id: 20, name: 'Bounty Hunter', role: 'Support', position: '4/5', icon: '🎯', winRate: 51.9, strength: 'Roaming, gold steal, vision', weakness: 'Low armor', countersTo: ['Anti-Mage', 'Slark', 'Broodmother'], counteredBy: ['Sentries', 'Dust', 'Tinker'] },
+        ];
+
+        const POSITIONS = [
+            { id: 1, name: 'Carry (Pos 1)', label: '1' },
+            { id: 2, name: 'Midlaner (Pos 2)', label: '2' },
+            { id: 3, name: 'Offlaner (Pos 3)', label: '3' },
+            { id: '4/5', name: 'Support (Pos 4/5)', label: '4/5' },
+        ];
+
+        // ============================================================================
+        // APP STATE
+        // ============================================================================
+        let appState = {
+            screen: 'role', // role, draft, recommendations, build
+            selectedPosition: null,
+            enemyPicks: [],
+            selectedHero: null,
+            searchQuery: '',
+        };
+
+        // ============================================================================
+        // UTILITIES
+        // ============================================================================
+        function calculateScore(hero, enemies) {
+            if (enemies.length === 0) return (hero.winRate / 100) * 100;
+            
+            let matchupScore = 0;
+            let validMatchups = 0;
+
+            enemies.forEach(enemyId => {
+                const enemy = HEROES.find(h => h.id === enemyId);
+                if (!enemy) return;
+
+                if (hero.countersTo.includes(enemy.name)) {
+                    matchupScore += 75;
+                } else if (hero.counteredBy.includes(enemy.name)) {
+                    matchupScore += 25;
+                } else {
+                    matchupScore += 50;
+                }
+                validMatchups++;
+            });
+
+            if (validMatchups === 0) return hero.winRate;
+
+            const avgMatchup = matchupScore / validMatchups;
+            const patchBonus = hero.winRate;
+            return avgMatchup * 0.8 + patchBonus * 0.2;
+        }
+
+        function getRecommendations() {
+            const heroesForPosition = HEROES.filter(h => {
+                if (appState.selectedPosition === '4/5') {
+                    return h.position === '4/5';
+                }
+                return h.position === appState.selectedPosition;
+            });
+
+            const scored = heroesForPosition.map(hero => ({
+                ...hero,
+                score: calculateScore(hero, appState.enemyPicks),
+            }));
+
+            return scored.sort((a, b) => b.score - a.score).slice(0, 5);
+        }
+
+        function generateBuild() {
+            const enemyHeroes = appState.enemyPicks.map(id => HEROES.find(h => h.id === id));
+            const hasHeavyMagic = enemyHeroes.some(h => ['Puck', 'Tinker', 'Lina', 'Storm Spirit'].includes(h.name));
+            const hasHealing = enemyHeroes.some(h => ['Dazzle', 'Treant Protector', 'Oracle'].includes(h.name));
+            const hasHighArmor = enemyHeroes.some(h => ['Bristleback', 'Tidehunter', 'Centaur'].includes(h.name));
+
+            return {
+                startItems: ['Quelling Blade', 'Tango', 'Healing Salve', 'Faerie Fire'],
+                earlyItems: [hasHeavyMagic ? 'Magic Stick' : 'Bottle', 'Boots of Speed'],
+                midItems: [hasHeavyMagic ? 'Pipe of Insight' : 'Hand of Midas', hasHighArmor ? 'Black King Bar' : 'Desolator'],
+                lateItems: [hasHealing ? 'Spirit Vessel' : 'Bloodstone', 'Abyssal Blade'],
+            };
+        }
+
+        // ============================================================================
+        // RENDER FUNCTIONS
+        // ============================================================================
+        function renderRoleScreen() {
+            return `
+                <div class="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 text-white font-sans overflow-hidden">
+                    <div class="relative z-10 flex flex-col items-center justify-center min-h-screen px-4 py-8">
+                        <div class="mb-12 text-center fade-in">
+                            <div class="text-6xl mb-4">⚔️</div>
+                            <h1 class="text-4xl font-black tracking-tighter mb-2 bg-gradient-to-r from-amber-400 via-orange-400 to-red-500 bg-clip-text text-transparent">DOTA 2 DRAFT</h1>
+                            <p class="text-purple-300 text-sm font-light tracking-widest">INTELLIGENT COUNTER-PICKING SYSTEM</p>
+                        </div>
+
+                        <div class="w-full max-w-sm space-y-3 mb-8">
+                            <p class="text-center text-purple-300 text-xs font-bold tracking-widest mb-6">SELECT YOUR POSITION</p>
+                            ${POSITIONS.map(pos => `
+                                <button onclick="selectPosition(${pos.id})" class="w-full group relative overflow-hidden rounded-lg bg-gradient-to-r from-slate-800 to-slate-900 px-6 py-4 transition-all duration-300 hover:shadow-lg hover:shadow-purple-500/50 border border-slate-700 hover:border-purple-500 card-hover">
+                                    <div class="relative flex items-center justify-between">
+                                        <span class="font-bold text-lg">${pos.name}</span>
+                                        <span class="text-2xl font-black text-purple-400">${pos.label}</span>
+                                    </div>
+                                </button>
+                            `).join('')}
+                        </div>
+
+                        <div class="mt-12 text-center text-slate-500 text-xs">
+                            <p>Fast draft assistant for ranked matchmaking</p>
+                            <p class="mt-2">Updated with live patch data</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderDraftScreen() {
+            const position = POSITIONS.find(p => p.id === appState.selectedPosition);
+            const filteredHeroes = HEROES.filter(h => h.name.toLowerCase().includes(appState.searchQuery.toLowerCase()));
+
+            return `
+                <div class="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 text-white font-sans pb-20">
+                    <div class="sticky top-0 z-20 bg-slate-950/80 backdrop-blur-md border-b border-purple-500/30 px-4 py-4">
+                        <div class="flex items-center justify-between mb-4">
+                            <button onclick="goBack()" class="flex items-center gap-2 text-purple-400 hover:text-purple-300 transition-colors">
+                                <span class="text-sm font-bold">← BACK</span>
+                            </button>
+                            <h2 class="text-xl font-black">SELECT ENEMY PICKS</h2>
+                            <div class="w-8"></div>
+                        </div>
+
+                        <div class="flex gap-2 flex-wrap">
+                            ${appState.enemyPicks.length === 0 ? '<p class="text-slate-500 text-xs">Add enemy heroes...</p>' : ''}
+                            ${appState.enemyPicks.map(heroId => {
+                                const hero = HEROES.find(h => h.id === heroId);
+                                return `
+                                    <div class="flex items-center gap-2 bg-gradient-to-r from-red-600/30 to-orange-600/30 rounded-lg px-3 py-2 border border-red-500/50 text-xs font-bold">
+                                        <span>${hero.icon}</span>
+                                        <span>${hero.name}</span>
+                                        <button onclick="removeEnemyPick(${heroId})" class="ml-1 hover:text-red-300">✕</button>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+
+                    <div class="sticky top-20 z-19 bg-slate-950/80 backdrop-blur-md px-4 py-4 border-b border-purple-500/20">
+                        <input type="text" placeholder="Search heroes..." value="${appState.searchQuery}" onchange="appState.searchQuery = this.value; render()" class="w-full bg-slate-900 border border-purple-500/30 rounded-lg pl-4 pr-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-purple-500/60 transition-colors text-sm">
+                    </div>
+
+                    <div class="px-4 py-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                        ${filteredHeroes.map(hero => `
+                            <button onclick="toggleEnemyPick(${hero.id})" class="group relative overflow-hidden rounded-lg transition-all duration-200 ${appState.enemyPicks.includes(hero.id) ? 'ring-2 ring-red-500 shadow-lg shadow-red-500/50' : ''} ${appState.enemyPicks.length === 5 && !appState.enemyPicks.includes(hero.id) ? 'opacity-50' : ''}">
+                                <div class="bg-gradient-to-br from-slate-800 to-slate-900 aspect-square rounded-lg p-3 flex flex-col items-center justify-center border border-slate-700 group-hover:border-purple-500 transition-colors relative overflow-hidden card-hover">
+                                    <div class="relative text-4xl mb-2">${hero.icon}</div>
+                                    <div class="relative text-center">
+                                        <p class="text-xs font-black leading-tight">${hero.name}</p>
+                                        <p class="text-purple-300 text-xs mt-1">${hero.role}</p>
+                                    </div>
+                                </div>
+                            </button>
+                        `).join('')}
+                    </div>
+
+                    ${appState.enemyPicks.length > 0 ? `
+                        <div class="fixed bottom-6 left-4 right-4">
+                            <button onclick="viewRecommendations()" class="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 px-6 py-4 rounded-lg font-black text-white shadow-lg shadow-purple-600/50 transition-all duration-300">
+                                ⚡ VIEW RECOMMENDATIONS (${appState.enemyPicks.length}/5)
+                            </button>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        function renderRecommendationsScreen() {
+            const position = POSITIONS.find(p => p.id === appState.selectedPosition);
+            const enemyHeroes = appState.enemyPicks.map(id => HEROES.find(h => h.id === id));
+            const recommendations = getRecommendations();
+
+            return `
+                <div class="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 text-white font-sans pb-24">
+                    <div class="sticky top-0 z-20 bg-slate-950/90 backdrop-blur-md border-b border-purple-500/30 px-4 py-4">
+                        <div class="flex items-center justify-between mb-3">
+                            <button onclick="goBack()" class="flex items-center gap-2 text-purple-400 hover:text-purple-300 transition-colors">
+                                <span class="text-sm font-bold">← BACK</span>
+                            </button>
+                            <h2 class="text-lg font-black text-center flex-1">TOP 5 PICKS · ${position.name}</h2>
+                            <div class="w-8"></div>
+                        </div>
+
+                        <div class="text-xs text-slate-400">
+                            <p class="font-bold text-purple-300 mb-1">ENEMY DRAFT:</p>
+                            <div class="flex gap-1 flex-wrap">
+                                ${enemyHeroes.map(hero => `<span class="bg-slate-800 px-2 py-1 rounded">${hero.icon} ${hero.name}</span>`).join('')}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="px-4 py-6 space-y-3">
+                        ${recommendations.map((hero, idx) => {
+                            const badgeColor = idx === 0 ? 'bg-gradient-to-br from-yellow-400 to-yellow-600 text-slate-950 shadow-lg shadow-yellow-500/50' :
+                                             idx === 1 ? 'bg-gradient-to-br from-slate-300 to-slate-500 text-slate-950' :
+                                             idx === 2 ? 'bg-gradient-to-br from-orange-400 to-orange-600 text-white' :
+                                             'bg-slate-700 text-slate-300';
+
+                            return `
+                                <button onclick="selectHero(${hero.id})" class="w-full group relative overflow-hidden rounded-lg transition-all duration-300 hover:shadow-xl hover:shadow-purple-600/50">
+                                    <div class="bg-gradient-to-r from-slate-800 to-slate-900 rounded-lg p-4 border border-slate-700 group-hover:border-purple-500 transition-colors relative overflow-hidden card-hover">
+                                        <div class="relative flex items-start gap-4">
+                                            <div class="flex-shrink-0">
+                                                <div class="w-12 h-12 rounded-lg flex items-center justify-center font-black text-xl ${badgeColor}">#${idx + 1}</div>
+                                            </div>
+
+                                            <div class="flex-grow text-left">
+                                                <div class="flex items-center gap-2 mb-2">
+                                                    <span class="text-3xl">${hero.icon}</span>
+                                                    <div>
+                                                        <h3 class="font-black text-lg leading-tight">${hero.name}</h3>
+                                                        <p class="text-purple-300 text-xs font-bold">${hero.role}</p>
+                                                    </div>
+                                                </div>
+
+                                                <p class="text-slate-400 text-sm mb-3 line-clamp-2">${hero.strength}</p>
+
+                                                <div class="grid grid-cols-3 gap-2 mb-3">
+                                                    <div class="bg-slate-900/50 rounded px-2 py-1.5">
+                                                        <p class="text-xs text-slate-400 font-bold">SCORE</p>
+                                                        <p class="font-black text-lg text-purple-400">${hero.score.toFixed(0)}</p>
+                                                    </div>
+                                                    <div class="bg-slate-900/50 rounded px-2 py-1.5">
+                                                        <p class="text-xs text-slate-400 font-bold">WIN RATE</p>
+                                                        <p class="font-black text-lg text-green-400">${hero.winRate.toFixed(1)}%</p>
+                                                    </div>
+                                                    <div class="bg-slate-900/50 rounded px-2 py-1.5">
+                                                        <p class="text-xs text-slate-400 font-bold">COUNTERS</p>
+                                                        <p class="font-black text-lg text-orange-400">${hero.countersTo.length}</p>
+                                                    </div>
+                                                </div>
+
+                                                <div class="space-y-1">
+                                                    <p class="text-xs font-bold text-slate-400 uppercase">vs Enemy:</p>
+                                                    <div class="flex flex-wrap gap-1">
+                                                        ${enemyHeroes.map(enemy => {
+                                                            const isGood = hero.countersTo.includes(enemy.name);
+                                                            const isBad = hero.counteredBy.includes(enemy.name);
+                                                            const bgClass = isGood ? 'bg-green-600/30 text-green-300 border border-green-500/50' :
+                                                                          isBad ? 'bg-red-600/30 text-red-300 border border-red-500/50' :
+                                                                          'bg-slate-700/50 text-slate-300 border border-slate-600/50';
+                                                            return `<div class="flex items-center gap-1 px-2 py-1 rounded text-xs font-bold ${bgClass}"><span>${isGood ? '✓' : isBad ? '✗' : '='}</span><span>${enemy.icon}</span></div>`;
+                                                        }).join('')}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </button>
+                            `;
+                        }).join('')}
+                    </div>
+
+                    <div class="fixed bottom-6 left-4 right-4 text-center">
+                        <p class="text-xs text-slate-500">TAP A HERO TO SEE OPTIMAL ITEM BUILD</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderBuildScreen() {
+            if (!appState.selectedHero) return '';
+
+            const hero = HEROES.find(h => h.id === appState.selectedHero);
+            const build = generateBuild();
+            const position = POSITIONS.find(p => p.id === appState.selectedPosition);
+
+            return `
+                <div class="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 text-white font-sans pb-20">
+                    <div class="sticky top-0 z-20 bg-slate-950/90 backdrop-blur-md border-b border-purple-500/30 px-4 py-4">
+                        <div class="flex items-center justify-between">
+                            <button onclick="goBack()" class="flex items-center gap-2 text-purple-400 hover:text-purple-300 transition-colors">
+                                <span class="text-sm font-bold">← BACK</span>
+                            </button>
+                            <h2 class="text-lg font-black">ITEM BUILD</h2>
+                            <div class="w-8"></div>
+                        </div>
+                    </div>
+
+                    <div class="bg-gradient-to-b from-purple-600/20 to-slate-900/0 px-4 py-8 text-center border-b border-purple-500/30">
+                        <div class="text-7xl mb-4">${hero.icon}</div>
+                        <h1 class="text-3xl font-black mb-2">${hero.name}</h1>
+                        <p class="text-purple-300 font-bold mb-4">${hero.role}</p>
+                        <p class="text-slate-400 text-sm max-w-sm mx-auto">${hero.strength}</p>
+                    </div>
+
+                    <div class="px-4 py-6 space-y-6">
+                        <div>
+                            <h3 class="text-sm font-black text-purple-300 mb-3">⚡ STARTING ITEMS</h3>
+                            <div class="grid grid-cols-2 gap-2">
+                                ${build.startItems.map(item => `<div class="bg-gradient-to-br from-slate-800 to-slate-900 rounded-lg p-3 border border-slate-700 text-center hover:border-purple-500 transition-colors"><p class="font-bold text-sm">${item}</p></div>`).join('')}
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 class="text-sm font-black text-green-300 mb-3">📈 EARLY GAME</h3>
+                            <div class="grid grid-cols-2 gap-2">
+                                ${build.earlyItems.map(item => `<div class="bg-gradient-to-br from-green-600/20 to-slate-900 rounded-lg p-3 border border-green-500/50 text-center hover:border-green-400 transition-colors"><p class="font-bold text-sm">${item}</p></div>`).join('')}
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 class="text-sm font-black text-orange-300 mb-3">🛡️ MID GAME</h3>
+                            <div class="grid grid-cols-2 gap-2">
+                                ${build.midItems.map(item => `<div class="bg-gradient-to-br from-orange-600/20 to-slate-900 rounded-lg p-3 border border-orange-500/50 text-center hover:border-orange-400 transition-colors"><p class="font-bold text-sm">${item}</p></div>`).join('')}
+                            </div>
+                        </div>
+
+                        <div>
+                            <h3 class="text-sm font-black text-red-300 mb-3">⚡ LATE GAME</h3>
+                            <div class="grid grid-cols-2 gap-2">
+                                ${build.lateItems.map(item => `<div class="bg-gradient-to-br from-red-600/20 to-slate-900 rounded-lg p-3 border border-red-500/50 text-center hover:border-red-400 transition-colors"><p class="font-bold text-sm">${item}</p></div>`).join('')}
+                            </div>
+                        </div>
+
+                        <div class="bg-slate-800/50 rounded-lg p-4 border border-slate-700 mt-6">
+                            <h4 class="font-black text-sm mb-2 text-purple-300">⚡ TIPS</h4>
+                            <ul class="text-xs space-y-1 text-slate-300">
+                                <li>✓ Prioritize defensive items if behind</li>
+                                <li>✓ Build BKB vs heavy disable</li>
+                                <li>✓ Adapt based on game progression</li>
+                                <li>✓ Check enemy items before final builds</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="fixed bottom-6 left-4 right-4">
+                        <button onclick="newDraft()" class="w-full bg-gradient-to-r from-slate-700 to-slate-800 hover:from-slate-600 hover:to-slate-700 px-6 py-3 rounded-lg font-bold text-white transition-all duration-300 border border-slate-600 hover:border-slate-500">START NEW DRAFT</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function render() {
+            const root = document.getElementById('root');
+            let html = '';
+
+            switch (appState.screen) {
+                case 'role': html = renderRoleScreen(); break;
+                case 'draft': html = renderDraftScreen(); break;
+                case 'recommendations': html = renderRecommendationsScreen(); break;
+                case 'build': html = renderBuildScreen(); break;
+            }
+
+            root.innerHTML = html;
+        }
+
+        // ============================================================================
+        // EVENT HANDLERS
+        // ============================================================================
+        function selectPosition(pos) {
+            appState.selectedPosition = pos;
+            appState.screen = 'draft';
+            appState.enemyPicks = [];
+            appState.searchQuery = '';
+            render();
+        }
+
+        function toggleEnemyPick(heroId) {
+            if (appState.enemyPicks.includes(heroId)) {
+                appState.enemyPicks = appState.enemyPicks.filter(id => id !== heroId);
+            } else if (appState.enemyPicks.length < 5) {
+                appState.enemyPicks.push(heroId);
+            }
+            render();
+        }
+
+        function removeEnemyPick(heroId) {
+            appState.enemyPicks = appState.enemyPicks.filter(id => id !== heroId);
+            render();
+        }
+
+        function viewRecommendations() {
+            appState.screen = 'recommendations';
+            render();
+        }
+
+        function selectHero(heroId) {
+            appState.selectedHero = heroId;
+            appState.screen = 'build';
+            render();
+        }
+
+        function goBack() {
+            if (appState.screen === 'draft') {
+                appState.screen = 'role';
+                appState.selectedPosition = null;
+                appState.enemyPicks = [];
+            } else if (appState.screen === 'recommendations') {
+                appState.screen = 'draft';
+            } else if (appState.screen === 'build') {
+                appState.screen = 'recommendations';
+            }
+            render();
+        }
+
+        function newDraft() {
+            appState = {
+                screen: 'role',
+                selectedPosition: null,
+                enemyPicks: [],
+                selectedHero: null,
+                searchQuery: '',
+            };
+            render();
+        }
+
+        // ============================================================================
+        // INIT
+        // ============================================================================
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('data:application/javascript;base64,Y29uc3QgQ0FDSEVfTkFNRSA9ICdkb3RhMi1kcmFmdC12MSc7CnNlbGYuYWRkRXZlbnRMaXN0ZW5lcignaW5zdGFsbCcsIChlKSA9PiB7CiAgY29uc29sZS5sb2coJ1NlcnZpY2Ugd29ya2VyIGluc3RhbGxlZCcpOwp9KTsKc2VsZi5hZGRFdmVudExpc3RlbmVyKCdhY3RpdmF0ZScsIChlKSA9PiB7CiAgY29uc29sZS5sb2coJ1NlcnZpY2Ugd29ya2VyIGFjdGl2YXRlZCcpOwp9KTsKc2VsZi5hZGRFdmVudExpc3RlbmVyKCdmZXRjaCcsIChlKSA9PiB7CiAgaWYgKGUucmVxdWVzdC5tZXRob2QgIT09ICdHRVQnKSByZXR1cm47CiAgZS5yZXNwb25kV2l0aCgKICAgIGNhY2hlcy5tYXRjaChlLnJlcXVlc3QpLnRoZW4oKHJlc3BvbnNlKSA9PiB7CiAgICAgIHJldHVybiByZXNwb25zZSB8fCBmZXRjaChlLnJlcXVlc3QpOwogICAgfSkKICApOwp9KTs=', { scope: '/' }).catch(() => {});
+        }
+
+        render();
+    </script>
+</body>
+</html>
